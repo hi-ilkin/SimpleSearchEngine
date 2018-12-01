@@ -2,6 +2,8 @@ import collections
 
 import re
 
+import time
+
 stopWords = ['ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there', 'about', 'once', 'during', 'out',
              'very', 'having', 'with', 'they', 'own', 'an', 'be', 'some', 'for', 'do', 'its', 'yours', 'such', 'into',
              'of', 'most', 'itself', 'other', 'off', 'is', 's', 'am', 'or', 'who', 'as', 'from', 'him', 'each', 'the',
@@ -16,8 +18,7 @@ stopWords = ['ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there'
 f = open('keywords.txt')
 
 my_db = {}
-
-from textblob import TextBlob
+s_t = 0
 
 
 def create_db():
@@ -32,7 +33,7 @@ def create_db():
         line = line.strip()
 
         # - sembolunun solunda bulunan url degerlerini alir
-        url = line.split('-')[0]
+        url = line.split('-')[0].strip()
 
         # - sembolunun saginda bulunan kelimeleri virgule gore ayirarak diziye ekler
         words = line.split('-')[-1].split(',')
@@ -40,15 +41,15 @@ def create_db():
         # - kelimelerin basinda ve sonunda bulunan bosluklari atar
         words = [w.strip() for w in words]
 
-        indexed_words = {}
-
         # her kelime icin bulundugu indis agirlik olarak atanir
         # 0 - en buyuk agirliktir
         for i, w in enumerate(words):
-            indexed_words[w] = i
+            if my_db.get(w) is None:
+                my_db[w] = {}
 
-        # url key degeri, agirliklandirilmis kelimeler value`dur
-        my_db[url] = indexed_words
+            my_db[w][url] = i
+
+            # print(my_db)
 
 
 def clear(sentence):
@@ -69,9 +70,11 @@ def get_user_input():
     Kullanicidan girdi alir
     :return: punctation and stop word free user input
     """
+    global s_t
 
     user_input = input("Please enter sentence: ").strip()
-    clear(user_input)
+    s_t = time.time()
+    user_input = clear(user_input)
 
     return user_input
 
@@ -86,23 +89,31 @@ def get_serch_results(user_input):
     found = {}
 
     # veri tabaninda bulunan her kelime icin
-    for url, w in my_db.items():
+    for user_w in user_input.split():
+        if my_db.get(user_w):
+            for k, v in my_db[user_w].items():
+                if found.get(k) is None:
+                    found[k] = v
 
-        for user_w in user_input.split():
-            if user_w in w.keys():
-                found[url] = w[user_w]
-
-    print(found)
-    od = collections.OrderedDict(sorted(found.items()))
-
-    return od
+    sorted_results = sorted(found.items(), key=lambda kv: kv[1])
+    # print(results)
+    return sorted_results
 
 
 if __name__ == "__main__":
     create_db()
-    while True:
-        user_input = get_user_input()
-        res = get_serch_results(user_input)
 
-        for k, v in res.items():
-            print(k, v)
+    while True:
+
+        user_input = get_user_input()
+        results = get_serch_results(user_input)
+        work_time = (time.time() - s_t)
+
+        if len(results) == 0:
+            print("\nSorry, we couldn't find anything :(")
+
+        else:
+            print("\n{} results found in {} secs.".format(len(results), work_time))
+            for k, v in results:
+                print(k)
+            print()
